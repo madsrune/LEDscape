@@ -148,9 +148,9 @@ main(
 
 	// initial value (perhaps lamp test was specified)
 	memset(frame, lampTest, led_count * LEDSCAPE_NUM_STRIPS * 4);
-	//ledscape_set_color(frame, 0, 0, 255, 0, 0);
-	//ledscape_set_color(frame, 1, 0, 0, 255, 0);
-	//ledscape_set_color(frame, 2, 0, 0, 0, 255);
+	//ledscape_set_color(frame, 0, 255, 255, 0, 0);
+	//ledscape_set_color(frame, 0, 256, 0, 255, 0);
+	//ledscape_set_color(frame, 0, 257, 0, 0, 255);
 	ledscape_draw(leds, 0);
 	if (fromfile)
 		printf("Playing\n");
