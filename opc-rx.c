@@ -159,17 +159,20 @@ main(
 
 	while (fd || (fd = accept(sock, NULL, NULL)) >= 0)
 	{
+		printf("Socket connected\n");
 		while(1)
 		{
 			opc_cmd_t cmd;
 			ssize_t rlen = read(fd, &cmd, sizeof(cmd));
 			
-			// start timing
-			struct timeval start_tv, stop_tv, delta_tv;
-			gettimeofday(&start_tv, NULL);
-
 			if (rlen < 0)
-					die("recv failed: %s\n", strerror(errno));
+			{
+				printf("Closing socket\n");
+				close(fd);
+				fd = 0;
+				break;
+				//die("recv failed: %s\n", strerror(errno));
+			}
 			if (rlen == 0)
 			{
 				if (fromfile)
@@ -180,11 +183,16 @@ main(
 				}
 				else
 				{
-					printf("closing socket\n");
+					printf("Closing socket\n");
 					close(fd);
+					fd = 0;
 					break;
 				}
 			}
+
+			// start timing
+			struct timeval start_tv, stop_tv, delta_tv;
+			gettimeofday(&start_tv, NULL);
 
 			const size_t cmd_len = cmd.len_hi << 8 | cmd.len_lo;
 //			warn("received %zu bytes: %d %zu\n", rlen, cmd.command, cmd_len);
@@ -205,12 +213,13 @@ main(
 
 //printf("Ch %d: %db\n", cmd.channel, cmd_len);
 
-			for (unsigned int i=0; i<cmd_len; i++) {
-				const uint8_t * const in = &buf[3 * i];
+			for (unsigned int i=0; i<cmd_len/3; i++) {
+				const uint8_t * const in = &buf[3*i];
 			        ledscape_set_color(frame, cmd.channel + i / led_count, i % led_count, 
 							in[0], in[1], in[2]);
  			}
 
+//			ledscape_wait(leds);
 			ledscape_draw(leds, 0);
 
 			if (fout)
