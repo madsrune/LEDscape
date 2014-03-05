@@ -57,7 +57,7 @@ main(
 )
 {
 	int port = 7890;
-	int led_count = 256;
+	int led_count = 64;
 
 	extern char *optarg;
 	int opt;
@@ -100,8 +100,9 @@ main(
 		die("%u too large for UDP\n", image_size);
 
 	fprintf(stderr, "OpenPixelControl LEDScape Receiver started on TCP port %d for %d pixels.\n", port, led_count);
-	fprintf(stderr, "NOTE: This is a preliminary implementation of OPC for LEDscape and does not support multiple clients or updating multiple channels.\n");
-	fprintf(stderr, "Use udp-rx in cases where those features are needed.\n");
+//	fprintf(stderr, "NOTE: This is a preliminary implementation of OPC for LEDscape and does not support 
+// multiple clients or updating multiple channels.\n");
+//	fprintf(stderr, "Use udp-rx in cases where those features are needed.\n");
 
 	ledscape_t * const leds = ledscape_init(led_count);
 
@@ -110,7 +111,14 @@ main(
 	unsigned long delta_sum = 0;
 	unsigned frames = 0;
 
-	uint32_t * const fb = calloc(image_size,4);
+	ledscape_frame_t * const frame = ledscape_frame(leds, 0);
+
+	memset(frame, 0, led_count * LEDSCAPE_NUM_STRIPS * 4);
+	//ledscape_set_color(frame, 0, 0, 255, 0, 0);
+	//ledscape_set_color(frame, 1, 0, 0, 255, 0);
+	//ledscape_set_color(frame, 2, 0, 0, 0, 255);
+	ledscape_draw(leds, 0);
+	printf("ready\n");
 
 	int fd;
 	while ((fd = accept(sock, NULL, NULL)) >= 0)
@@ -128,9 +136,9 @@ main(
 			}
 
 			const size_t cmd_len = cmd.len_hi << 8 | cmd.len_lo;
-			warn("received %zu bytes: %d %zu\n", rlen, cmd.command, cmd_len);
-
+//			warn("received %zu bytes: %d %zu\n", rlen, cmd.command, cmd_len);
 			size_t offset = 0;
+
 			while (offset < cmd_len)
 			{
 				rlen = read(fd, buf + offset, cmd_len - offset);
@@ -144,20 +152,31 @@ main(
 			if (cmd.command != 0)
 				continue;
 
+//printf("Ch %d: %db\n", cmd.channel, cmd_len);
+
 			struct timeval start_tv, stop_tv, delta_tv;
 			gettimeofday(&start_tv, NULL);
 
-			const unsigned frame_num = 0;
+//			const unsigned frame_num = 0;
 
-			for (unsigned int i=0; i<image_size; i++) {
-				uint8_t * const out = (void*) &fb[i];
+			for (unsigned int i=0; i<cmd_len; i++) {
+				//uint8_t * const out = (void*) &frame[i + led_count*cmd.channel];
 				const uint8_t * const in = &buf[3 * i];
-				out[0] = in[0];
-				out[1] = in[1];
-				out[2] = in[2];
-			}
+				//out[0] = in[0];
+				//out[1] = in[1];
+				//out[2] = in[2];
+        ledscape_set_color(
+          frame,
+          cmd.channel + i / led_count,
+          i % led_count,
+          
+         in[0],
+         in[1],
+         in[2]
+        );
+ 			}
 
-			ledscape_draw(leds, fb);
+			ledscape_draw(leds, 0);
 
 			gettimeofday(&stop_tv, NULL);
 			timersub(&stop_tv, &start_tv, &delta_tv);
@@ -169,9 +188,9 @@ main(
 			last_report = stop_tv.tv_sec;
 
 			const unsigned delta_avg = delta_sum / frames;
-			printf("%6u usec avg, max %.2f fps, actual %.2f fps (over %u frames)\n",
+			printf("\n%6u usec avg, actual %.2f fps (over %u frames)\n",
 				delta_avg,
-				report_interval * 1.0e6 / delta_avg,
+//				report_interval * 1.0e6 / delta_avg,
 				frames * 1.0 / report_interval,
 				frames
 			);
