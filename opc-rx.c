@@ -132,8 +132,10 @@ main(
 
 	ledscape_t * const leds = ledscape_init(led_count);
 
+	struct timeval t;
+	gettimeofday(&t, NULL);
 	const unsigned report_interval = 10;
-	unsigned last_report = 0;
+	unsigned last_report = t.tv_sec;
 	unsigned long delta_sum = 0;
 	unsigned frames = 0;
 
@@ -144,7 +146,10 @@ main(
 	//ledscape_set_color(frame, 1, 0, 0, 255, 0);
 	//ledscape_set_color(frame, 2, 0, 0, 0, 255);
 	ledscape_draw(leds, 0);
-	printf("ready\n");
+	if (fromfile)
+		printf("Playing\n");
+	else
+		printf("Ready\n");
 
 	while (fd || (fd = accept(sock, NULL, NULL)) >= 0)
 	{
@@ -153,6 +158,10 @@ main(
 			opc_cmd_t cmd;
 			ssize_t rlen = read(fd, &cmd, sizeof(cmd));
 			
+			// start timing
+			struct timeval start_tv, stop_tv, delta_tv;
+			gettimeofday(&start_tv, NULL);
+
 			if (rlen < 0)
 					die("recv failed: %s\n", strerror(errno));
 			if (rlen == 0)
@@ -190,9 +199,6 @@ main(
 
 //printf("Ch %d: %db\n", cmd.channel, cmd_len);
 
-			struct timeval start_tv, stop_tv, delta_tv;
-			gettimeofday(&start_tv, NULL);
-
 			for (unsigned int i=0; i<cmd_len; i++) {
 				const uint8_t * const in = &buf[3 * i];
 			        ledscape_set_color(frame, cmd.channel + i / led_count, i % led_count, 
@@ -201,22 +207,24 @@ main(
 
 			ledscape_draw(leds, 0);
 
-			gettimeofday(&stop_tv, NULL);
-			timersub(&stop_tv, &start_tv, &delta_tv);
-
-			if (fromfile)
-				usleep(1000000/frame_rate-225); // Approximation 
-				
 			if (fout)
 			{
 				write(fout, &cmd, sizeof(cmd));
 				write(fout, buf, sizeof(uint8_t)*cmd_len); 
 			}
 
+			gettimeofday(&stop_tv, NULL);
+			timersub(&stop_tv, &start_tv, &delta_tv);
+
+			// wait for next frame if reading from file
+			if (fromfile)
+				usleep(1000000/frame_rate - delta_tv.tv_usec - 180); // 180 is a magic number 
+				
 			frames++;
 			delta_sum += delta_tv.tv_usec;
 			if (stop_tv.tv_sec - last_report < report_interval)
 				continue;
+
 			last_report = stop_tv.tv_sec;
 
 			const unsigned delta_avg = delta_sum / frames;
