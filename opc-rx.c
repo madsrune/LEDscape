@@ -58,9 +58,16 @@ main(
 {
 	int port = 7890;
 	int led_count = 256;
-
+	int frame_rate = 30;
+	
 	extern char *optarg;
 	int opt;
+
+////	
+	int fd = 0, fout = 0;
+	int fromfile = FALSE;
+////
+	
 	while ((opt = getopt(argc, argv, "p:c:d:")) != -1)
 	{
 		switch (opt)
@@ -80,13 +87,35 @@ main(
 				printf("Invalid argument for -d; expected NxN; actual: %s", optarg);
 				exit(EXIT_FAILURE);
 			}
+			break;
+////			
+		case 'w': 
+			printf("Writing OPC data to file: %s", optarg);
+			fout = open(optarg, O_WRONLY | O_CREAT | O_TRUNC);
+			break;
+		
+		case 'r': 
+			printf("Reading OPC data from file: %s", optarg);
+			fd = open(optarg, O_RDONLY);
+			fromfile = TRUE;
+			break;
+			
+		case 'f':
+			frame_rate = atoi(optarg);
+			break;
+		
+////
 		}
-		break;
 		default:
-			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>]] \n", argv[0]);
 			exit(EXIT_FAILURE);
 		}
 	}
+
+////
+	if (fromfile)
+		printf("Frame rate: %d fps", frame_rate);
+////
 
 	const int sock = tcp_socket(port);
 	if (sock < 0)
@@ -112,13 +141,13 @@ main(
 
 	uint32_t * const fb = calloc(image_size,4);
 
-	int fd;
-	while ((fd = accept(sock, NULL, NULL)) >= 0)
+	while (fd || (fd = accept(sock, NULL, NULL)) >= 0)
 	{
 		while(1)
 		{
 			opc_cmd_t cmd;
 			ssize_t rlen = read(fd, &cmd, sizeof(cmd));
+			
 			if (rlen < 0)
 				die("recv failed: %s\n", strerror(errno));
 			if (rlen == 0)
@@ -158,7 +187,16 @@ main(
 			}
 
 			ledscape_draw(leds, fb);
-
+////
+			if (fromfile)
+				usleep(1000000/frame_rate);
+				
+			if (fout)
+			{
+				write(cmd, sizeof(cmd), 1, fpOut);
+				write(cmd, sizeof(char), uint8_t, cmd_len, fpOut); 
+			}
+////
 			gettimeofday(&stop_tv, NULL);
 			timersub(&stop_tv, &start_tv, &delta_tv);
 
