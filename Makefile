@@ -7,6 +7,7 @@ TARGETS += fade-test
 TARGETS += fire
 TARGETS += udp-rx
 TARGETS += opc-rx
+TARGETS += artnet-rx
 
 LEDSCAPE_OBJS = ledscape.o pru.o util.o
 LEDSCAPE_LIB := libledscape.a
