@@ -19,6 +19,9 @@
 #include "util.h"
 #include "ledscape.h"
 
+#define FALSE 0
+#define TRUE 1
+
 typedef struct
 {
 	uint8_t channel;
@@ -200,12 +203,12 @@ main(
 			ledscape_draw(leds, 0);
 
 			if (fromfile)
-				usleep(1000000/frame_rate); // Not counting delay in this loop
+				usleep(1000000/frame_rate); // Not accurate because we are ignoring processing delay in this loop
 				
 			if (fout)
 			{
-				write(cmd, sizeof(cmd), 1, fpOut);
-				write(cmd, sizeof(char), uint8_t, cmd_len, fpOut); 
+				write(fout, &cmd, sizeof(cmd));
+				write(fout, buf, sizeof(uint8_t)*cmd_len); 
 			}
 
 			gettimeofday(&stop_tv, NULL);
