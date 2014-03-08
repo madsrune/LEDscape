@@ -68,10 +68,12 @@ main(
 
 	int fd = 0, fout = 0;
 	int fromfile = FALSE;
+	int lampTest = 0;
+	int startDelay = 0;
 
 	fprintf(stderr, "OpenPixelControl LEDScape Receiver\n\n");
 	
-	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:")) != -1)
+	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:s:")) != -1)
 	{
 		switch (opt)
 		{
@@ -107,9 +109,17 @@ main(
 		case 'f':
 			frame_rate = atoi(optarg);
 			break;
+
+		case 't':
+			lampTest = atoi(optarg);
+			break;
+
+		case 's':
+			startDelay = atoi(optarg);
+			break;
 		
 		default:
-			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>]] \n", argv[0]);
+			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>]] [-t <lamp test 0-255>] [-s <start delay in secs>] \n", argv[0]);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -118,6 +128,9 @@ main(
 		printf("Frame rate: %d fps\n", frame_rate);
 
 	printf("LEDs per strip: %d\nPort: %d\n", led_count, port);
+
+	// wait for other services to be ready
+	sleep(startDelay);
 
 	const int sock = tcp_socket(port);
 	if (sock < 0)
@@ -141,7 +154,8 @@ main(
 
 	ledscape_frame_t * const frame = ledscape_frame(leds, 0);
 
-	memset(frame, 0, led_count * LEDSCAPE_NUM_STRIPS * 4);
+	// initial value (perhaps lamp test was specified)
+	memset(frame, lampTest, led_count * LEDSCAPE_NUM_STRIPS * 4);
 	//ledscape_set_color(frame, 0, 0, 255, 0, 0);
 	//ledscape_set_color(frame, 1, 0, 0, 255, 0);
 	//ledscape_set_color(frame, 2, 0, 0, 0, 255);
