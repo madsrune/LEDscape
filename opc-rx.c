@@ -68,11 +68,13 @@ main(
 
 	int fd = 0, fout = 0;
 	int fromfile = FALSE;
+	int loop = FALSE;
+
 	int lampTest = 0;
 
 	fprintf(stderr, "OpenPixelControl LEDScape Receiver\n\n");
 	
-	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:")) != -1)
+	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:l:")) != -1)
 	{
 		switch (opt)
 		{
@@ -104,6 +106,10 @@ main(
 			fd = open(optarg, O_RDONLY);
 			fromfile = TRUE;
 			break;
+
+		case 'l':
+			loop = TRUE;
+			break;
 			
 		case 'f':
 			frame_rate = atoi(optarg);
@@ -114,7 +120,7 @@ main(
 			break;
 
 		default:
-			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>]] [-t <lamp test 0-255>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>][-l(oop)] [-t <lamp test 0-255>]\n", argv[0]);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -159,7 +165,9 @@ main(
 
 	while (fd || (fd = accept(sock, NULL, NULL)) >= 0)
 	{
-		printf("Socket connected\n");
+		if (!fromfile)
+			printf("Socket connected\n");
+
 		while(1)
 		{
 			opc_cmd_t cmd;
@@ -177,9 +185,17 @@ main(
 			{
 				if (fromfile)
 				{
-					printf("looping file\n");
-					lseek(fd, 0, SEEK_SET); // seek to beginning of file
-					rlen = read(fd, &cmd, sizeof(cmd)); // read cmd header again
+					if (loop) {
+						printf("looping file\n");
+						lseek(fd, 0, SEEK_SET); // seek to beginning of file
+						rlen = read(fd, &cmd, sizeof(cmd)); // read cmd header again
+					} else {
+						printf("closing file\n");
+						close(fd);
+						fd = 0;
+						fromfile = FALSE;
+						break;
+					}
 				}
 				else
 				{
