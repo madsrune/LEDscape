@@ -53,6 +53,27 @@ tcp_socket(
 }
 
 
+int openTty(const char* devName) {
+	struct termios tio;
+
+        memset(&tio,0,sizeof(tio));
+        tio.c_iflag=0;
+        tio.c_oflag=0;
+        tio.c_cflag=CS8|CREAD|CLOCAL;           // 8n1, see termios.h for more information
+        tio.c_lflag=0;
+        tio.c_cc[VMIN]=1;
+        tio.c_cc[VTIME]=5;
+ 
+        int tty_fd=open(devName, O_RDWR | O_NONBLOCK);      
+        cfsetospeed(&tio,B115200);            // 115200 baud
+        cfsetispeed(&tio,B115200);            // 115200 baud
+ 
+        tcsetattr(tty_fd,TCSANOW,&tio);
+
+	return tty_fd;
+}
+
+
 int
 main(
 	int argc,
@@ -66,15 +87,21 @@ main(
 	extern char *optarg;
 	int opt;
 
-	int fd = 0, fout = 0;
+	int fd = 0, fout = 0, tty_fd = 0;
 	int fromfile = FALSE;
 	int loop = FALSE;
 
 	int lampTest = 0;
 
+	int uartDone = FALSE;
+	uint8_t uartBuf[5];
+	memset(uartBuf, 0, sizeof(uartBuf));
+	uartBuf[0] = 0x01; // SOH
+	uartBuf[4] = 0x04; // EOT
+
 	fprintf(stderr, "OpenPixelControl LEDScape Receiver\n\n");
 	
-	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:l:")) != -1)
+	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:l:s:")) != -1)
 	{
 		switch (opt)
 		{
@@ -119,6 +146,14 @@ main(
 			lampTest = atoi(optarg);
 			break;
 
+		case 's':
+			tty_fd = openTty(optarg);
+			if (tty_fd == 0)
+				die("Could not open port: '%s'\n", optarg);
+			else
+				printf("Serial port opened: %s\n", optarg);
+			break;
+
 		default:
 			fprintf(stderr, "Usage: %s [-p <port>] [-c <led_count> | -d <width>x<height>] [-w <output file>] [-r <input file> [-f <frame rate>][-l(oop)] [-t <lamp test 0-255>]\n", argv[0]);
 			exit(EXIT_FAILURE);
@@ -132,7 +167,7 @@ main(
 
 	const int sock = tcp_socket(port);
 	if (sock < 0)
-		die("socket port %d failed: %s\n", port, strerror(errno));
+		die("Socket port %d failed: %s\n", port, strerror(errno));
 
 	const size_t image_size = led_count * 3;
 
@@ -253,6 +288,20 @@ main(
 				
 			frames++;
 			delta_sum += delta_tv.tv_usec;
+
+			if (tty_fd != 0 && stop_tv.tv_sec % 5 == 0) {
+				if (!uartDone) {
+					const uint8_t * const in = &buf[3 * (led_count*3+80)]; // 4th strand, about half way in
+					uartBuf[1] = in[0];
+					uartBuf[2] = in[1];
+					uartBuf[3] = in[2];
+					write(tty_fd, uartBuf, sizeof(uartBuf));
+					uartDone = TRUE;
+				}
+			}
+			else
+				uartDone = FALSE;
+
 			if (stop_tv.tv_sec - last_report < report_interval)
 				continue;
 
@@ -270,5 +319,6 @@ main(
 		}
 	}
 
+	close(tty_fd);
 	return 0;
 }
