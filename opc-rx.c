@@ -101,7 +101,7 @@ main(
 
 	fprintf(stderr, "OpenPixelControl LEDScape Receiver\n\n");
 	
-	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:l:s:")) != -1)
+	while ((opt = getopt(argc, argv, "p:c:d:w:r:f:t:ls:")) != -1)
 	{
 		switch (opt)
 		{
@@ -284,7 +284,11 @@ main(
 
 			// wait for next frame if reading from file
 			if (fromfile)
-				usleep(1000000/frame_rate - delta_tv.tv_usec - 180); // 180 is a magic number 
+			{
+				int usec = 1000000/frame_rate - delta_tv.tv_usec - 180; // 180 is a magic number 
+				if (usec > 0)
+					usleep(usec);
+			}
 				
 			frames++;
 			delta_sum += delta_tv.tv_usec;
